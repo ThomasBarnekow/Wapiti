@@ -33,8 +33,8 @@
 #include <stdio.h>
 
 #include <unistd.h>
-#include <sys/time.h>
-#include <sys/resource.h>
+//#include <sys/time.h>
+//#include <sys/resource.h>
 
 #include "wapiti.h"
 #include "decoder.h"

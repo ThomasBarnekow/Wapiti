@@ -1,0 +1,79 @@
+# Some changes were made to build wapiti using a MinGW-w64 toolchain, e.g.,
+# as installed by the mingw-w64-i686-toolchain or mingw-w64-x86_64-toolchain
+# package groups (which, at the time of writing, installed gcc 5.3.0):
+# - Specify -std=c11 to select the latest ISO C standard supported by gcc. 
+#   Alternatively, specify -std=c99.
+# - Explicitly define __USE_MINGW_ANSI_STDIO to make sure a c99-compliant
+#   scanf/printf function is used. This should have been defined by specifying
+#   -std=c99 (or -std=c11). However, it seemingly isn't, leading to a number
+#	of warnings (and likely runtime issues).
+# - Specify -static to statically link the required libraries rather than
+#	requiring a DLL to be bundled with the executable.
+# 
+# The following discussions provided helpful hints:
+# http://stackoverflow.com/questions/7004702/how-can-i-create-a-makefile-for-c-projects-with-src-obj-and-bin-subdirectories
+# http://stackoverflow.com/questions/1950926/create-directories-using-make-file
+
+CC=@gcc
+CFLAGS=-std=c11 -DNDEBUG -D__USE_MINGW_ANSI_STDIO -W -Wall -Wextra -O3
+LDFLAGS=-static
+
+# Convenience variables
+ensure_dir_exists=@mkdir -p $(@D)
+rm=@rm -f
+echo=@echo -e
+
+# Source and output directories relative to the Makefile's location
+SRC=src
+OBJ=obj
+BIN=bin
+
+# Source files for executable and shared library (DLL)
+EXE_SOURCES=$(SRC)/wapiti.c $(SRC)/bcd.c $(SRC)/decoder.c $(SRC)/gradient.c \
+	$(SRC)/lbfgs.c $(SRC)/model.c $(SRC)/options.c $(SRC)/pattern.c \
+	$(SRC)/progress.c $(SRC)/quark.c $(SRC)/reader.c $(SRC)/rprop.c \
+	$(SRC)/sgdl1.c $(SRC)/thread.c $(SRC)/tools.c $(SRC)/vmath.c
+	
+DLL_SOURCES=$(SRC)/wapiti_api.c $(SRC)/model.c $(SRC)/options.c \
+	$(SRC)/pattern.c $(SRC)/quark.c $(SRC)/reader.c $(SRC)/tools.c \
+	$(SRC)/vmath.c
+	
+SOURCES=$(wildcard $(SRC)/*.c)
+
+# Object files for executable and shared library (DLL)
+EXE_OBJECTS=$(EXE_SOURCES:$(SRC)/%.c=$(OBJ)/%.o)
+DLL_OBJECTS=$(DLL_SOURCES:$(SRC)/%.c=$(OBJ)/%.o)
+OBJECTS=$(SOURCES:$(SRC)/%.c=$(OBJ)/%.o)
+
+# Libraries for executable and shared library (DLL)
+EXE_LIBS=-lm -lpthread
+DLL_LIBS=-lm
+
+# Targets
+EXE_TARGET=$(BIN)/wapiti.exe
+DLL_TARGET=$(BIN)/wapiti.dll
+
+all: clean $(DLL_TARGET) $(EXE_TARGET)
+
+$(EXE_TARGET): $(EXE_OBJECTS)
+	$(ensure_dir_exists)
+	$(CC) $(LDFLAGS) $(EXE_OBJECTS) $(EXE_LIBS) -o $@
+	$(echo) "Successfully built "$@".\n"
+
+$(DLL_TARGET): $(DLL_OBJECTS)
+	$(ensure_dir_exists)
+	$(CC) -shared -DWAPITI_DLL $(LDFLAGS) $(DLL_OBJECTS) $(DLL_LIBS) -o $@
+	$(echo) "Successfully built "$@".\n"
+
+$(OBJECTS): $(OBJ)/%.o : $(SRC)/%.c
+	$(ensure_dir_exists)
+	$(CC) -c $(CFLAGS) $< -o $@
+	$(echo) "Successfully built "$@"."
+
+clean:	
+	$(rm) $(OBJ)/*.o
+	$(rm) $(BIN)/*.exe
+	$(rm) $(BIN)/*.dll
+	$(echo) "Cleaned objects and binaries.\n"
+
+.PHONY: all clean
